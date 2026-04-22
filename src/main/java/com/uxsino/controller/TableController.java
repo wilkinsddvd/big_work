@@ -1,5 +1,6 @@
 package com.uxsino.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uxsino.DTO.AddTableDTO;
 import com.uxsino.DTO.PageListDTO;
 import com.uxsino.DTO.TableTransferPackageDTO;
@@ -47,6 +48,9 @@ public class TableController {
 
     @Autowired
     private WebLogService webLogService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @GetMapping("/list")
     public ResultInfo listTable(PageListDTO tableDTO) {
@@ -270,7 +274,33 @@ public class TableController {
      */
     @GetMapping("/export")
     public void export(@RequestParam String tableName, HttpServletResponse response) {
+        String event = "导出表格，tableName is " + tableName;
+        try {
+            OperUtils.permissionCheck(Constant.SUPER);
 
+            Subject subject = SecurityUtils.getSubject();
+            User loginUser = (User) subject.getPrincipals().getPrimaryPrincipal();
+
+            TableTransferPackageDTO exportPackage = tableService.exportTable(tableName, loginUser.getUserName());
+            String json = objectMapper.writeValueAsString(exportPackage);
+
+            // Use the DB-stored table name (not the raw request parameter) to avoid taint in header
+            String dbTableName = exportPackage.getTable().getTableName();
+            // URLEncoder encodes CR/LF as %0D/%0A, then strip any residual CRLF for safety
+            String filename = URLEncoder.encode(dbTableName + "_export.json", StandardCharsets.UTF_8.name())
+                    .replaceAll("[\\r\\n]", "");
+            response.setContentType("application/json;charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + filename);
+
+            OutputStream os = response.getOutputStream();
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+            os.flush();
+
+            webLogService.success(event);
+        } catch (Exception e) {
+            logger.error("事件：" + event, e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -279,10 +309,26 @@ public class TableController {
      */
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResultInfo importTable(@RequestParam("file") MultipartFile file) {
+        String event = "导入表格";
+        try {
+            OperUtils.permissionCheck(Constant.SUPER);
 
+            Subject subject = SecurityUtils.getSubject();
+            User loginUser = (User) subject.getPrincipals().getPrimaryPrincipal();
 
+            if (file == null || file.isEmpty()) {
+                return ResultInfo.failed("文件不能为空！");
+            }
 
-       return null;
+            String jsonContent = new String(file.getBytes(), StandardCharsets.UTF_8);
+            tableService.importTable(jsonContent, loginUser.getUserName());
+
+            webLogService.success(event);
+            return ResultInfo.success(Constant.OPER_SUCCESS);
+        } catch (Exception e) {
+            logger.error("事件：" + event, e);
+            return recordLogAndReturn(event, OperUtils.parseException(e));
+        }
     }
 
     /**
