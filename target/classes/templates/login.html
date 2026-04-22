@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录页面</title>
+    <!-- 引入 Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* 设置页面高度，并使用 Flexbox 居中 */
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        .centered-container {
+            display: flex;
+            justify-content: center; /* 水平居中 */
+            align-items: center; /* 垂直居中 */
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<!-- 使用 Flexbox 让页面内容居中 -->
+<div class="centered-container">
+    <div class="col-md-4">
+        <!-- 错误提示信息 -->
+        <div id="error-message" class="alert alert-danger text-center" role="alert" style="display: none;"></div>
+        <!-- 登录表单 -->
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white text-center">
+                <h4>登录</h4>
+            </div>
+            <div class="card-body">
+                <form id="loginForm">
+                    <!-- 用户名输入框 -->
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" name="username" placeholder="请输入用户名" required>
+                    </div>
+                    <!-- 密码输入框 -->
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required>
+                    </div>
+                    <!-- 登录按钮 -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">登录</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 Bootstrap JS 和依赖的 Popper.js -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const userName = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        fetch("/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json" // JSON Content-Type
+            },
+            body: JSON.stringify({ userName, password }) // JSON.stringify 将对象序列化为 JSON 格式
+        })
+            .then(response => response.json())
+            .then(response => {
+                if (response.resultCode === 200) {
+                    // 保存 Token
+                    localStorage.setItem("token", response.data.token);
+                    const token = response.data.token;
+
+                    fetch("/home.html", {
+                        method: "GET",
+                        headers: {
+                            "token": token // 将 Token 添加到请求头
+                        }
+                    })
+                        .then(response => {
+                            if (response.ok) {
+                                // 后端验证成功后，可以安全跳转
+                                window.location.href = "/home.html";
+                            } else {
+                                alert("Unauthorized access. Please log in again.");
+                                window.location.href = "/login.html";
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Error:", error);
+                        });
+                } else {
+                    document.getElementById("error-message").innerText = response.message;
+                    document.getElementById("error-message").style.display = "block";
+                    document.getElementById("username").value = ""; // 清空用户名输入框
+                    document.getElementById("password").value = ""; // 清空密码输入框
+                }
+            })
+            .catch(error => console.error("Error:", error));
+    });
+</script>
+</body>
+</html>

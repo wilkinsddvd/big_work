@@ -1,0 +1,48 @@
+<!-- 添加表格的弹框 -->
+<div class="modal fade" id="addColumnModal" tabindex="-1" aria-labelledby="addColumnModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addColumnModalLabel">新增列</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addColumnForm" class="container">
+                    <div class="row mb-3">
+
+                        <!-- 标签和输入框同一行 mb-3表示下边距3-->
+                        <div class="d-flex align-items-center mb-3">
+                            <label for="columnNameAdd" class="form-label mb-0 me-2 text-nowrap" style="min-width: 100px; text-align: right;">列名称：</label>
+                            <input type="text" id="columnNameAdd" name="columnName" class="form-control me-3" style="min-width: 300px;" required>
+                            <label for="columnDescAdd" class="form-label mb-0 me-2 text-nowrap" style="min-width: 100px; text-align: right;">列描述：</label>
+                            <input type="text" id="columnDescAdd" name="columnDesc" class="form-control" style="min-width: 300px;" required>
+                        </div>
+
+                        <!-- 标签和输入框同一行 -->
+                        <div class="d-flex align-items-center mb-3">
+                            <!-- me：右侧外边距，mb-{size}: 设置底部外边距 -->
+                            <label for="displayMultiplierAdd" class="form-label mb-0 me-2 text-nowrap" style="min-width: 100px; text-align: right;">列宽倍数：</label>
+                            <input type="text" id="displayMultiplierAdd" name="displayMultiplier" class="form-control me-3" style="min-width: 300px;" required>
+                            <label for="controlTypeAdd" class="form-label mb-0 me-2 text-nowrap" style="min-width: 100px; text-align: right;">组件类型：</label>
+                            <select class="form-select" id="controlTypeAdd" name="controlType" style="min-width: 300px;">
+                                <option value="input" selected>输入框</option>
+                                <option value="select">下拉框</option>
+                            </select>
+                        </div>
+
+                        <!-- 标签和输入框同一行 -->
+                        <div class="d-flex align-items-center mb-3">
+                            <label for="enumValuesAdd" class="form-label mb-0 me-2 text-nowrap" style="min-width: 100px; text-align: right;">下拉框可选项：</label>
+                            <input type="text" id="enumValuesAdd" name="enumValues" class="form-control" style="min-width: 300px;" placeholder="以英文逗号分隔，默认显示第一个内容" required>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button id="saveColumnButton" type="button" class="btn btn-primary" onclick="saveColumn()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>

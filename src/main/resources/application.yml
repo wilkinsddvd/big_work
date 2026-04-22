@@ -1,0 +1,41 @@
+# 数据源配置（随 JAR 打包；亦可在外置 ./config/application.yml 覆盖部分配置，见 YamlConfig 读取顺序）
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1/test
+    username: postgres
+    password: 123456
+#    url: jdbc:uxdb://10.128.0.108:52025/uxdb
+#    username: uxdb                # 数据库用户名
+#    password: 123456        # 数据库密码
+#    driver-class-name: com.uxsino.uxdb.Driver
+
+
+  # JPA 配置
+  jpa:
+    hibernate:
+      ddl-auto: update            # 自动更新数据库结构，可选值：none, update, create, create-drop
+    show-sql: true                # 控制台显示 SQL 语句
+    properties:
+      hibernate:
+        format_sql: true          # 格式化 SQL 语句
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  # 设置 Thymeleaf 模板路径（可选）
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+
+# 服务器端口配置
+server:
+  port: 8080
+  token:
+    expire-time: 43200000
+
+logging:
+  level:
+    org.apache.shiro: DEBUG
+    org.apache.shiro.web: DEBUG
