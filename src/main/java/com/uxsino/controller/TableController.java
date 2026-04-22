@@ -284,8 +284,11 @@ public class TableController {
             TableTransferPackageDTO exportPackage = tableService.exportTable(tableName, loginUser.getUserName());
             String json = objectMapper.writeValueAsString(exportPackage);
 
-            String safeTableName = tableName.replaceAll("[\\r\\n]", "");
-            String filename = URLEncoder.encode(safeTableName + "_export.json", StandardCharsets.UTF_8.name());
+            // Use the DB-stored table name (not the raw request parameter) to avoid taint in header
+            String dbTableName = exportPackage.getTable().getTableName();
+            // URLEncoder encodes CR/LF as %0D/%0A, then strip any residual CRLF for safety
+            String filename = URLEncoder.encode(dbTableName + "_export.json", StandardCharsets.UTF_8.name())
+                    .replaceAll("[\\r\\n]", "");
             response.setContentType("application/json;charset=UTF-8");
             response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + filename);
 

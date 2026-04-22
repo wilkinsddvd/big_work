@@ -589,10 +589,10 @@ public class TableService {
         save(addTableDTO, loginUserName);
 
         if (dto.getData() != null && !dto.getData().isEmpty()) {
-            List<String> dataColumns = new ArrayList<>();
-            for (AddColumnDTO col : columnDTOs) {
-                dataColumns.add(col.getColumnName());
-            }
+            // Retrieve column names from DB metadata to avoid using tainted user-provided column names in SQL
+            List<String> dataColumns = getTableMetadata(tableName);
+            // Remove the id column so we don't try to insert into the auto-generated primary key
+            dataColumns.remove("id");
 
             if (!dataColumns.isEmpty()) {
                 for (Map<String, Object> row : dto.getData()) {
