@@ -284,7 +284,8 @@ public class TableController {
             TableTransferPackageDTO exportPackage = tableService.exportTable(tableName, loginUser.getUserName());
             String json = objectMapper.writeValueAsString(exportPackage);
 
-            String filename = URLEncoder.encode(tableName + "_export.json", StandardCharsets.UTF_8.name());
+            String safeTableName = tableName.replaceAll("[\\r\\n]", "");
+            String filename = URLEncoder.encode(safeTableName + "_export.json", StandardCharsets.UTF_8.name());
             response.setContentType("application/json;charset=UTF-8");
             response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + filename);
 

@@ -543,7 +543,7 @@ public class TableService {
         }
         dto.setColumns(columns);
 
-        dto.setData(getTableDataFull(tableName));
+        dto.setData(getTableDataFull(tableDao.getTableName()));
         return dto;
     }
 
@@ -594,27 +594,26 @@ public class TableService {
                 dataColumns.add(col.getColumnName());
             }
 
-            for (Map<String, Object> row : dto.getData()) {
-                if (dataColumns.isEmpty()) {
-                    continue;
-                }
-                StringBuilder sql = new StringBuilder("INSERT INTO \"").append(tableName).append("\" (");
-                StringBuilder values = new StringBuilder("VALUES (");
-                for (int i = 0; i < dataColumns.size(); i++) {
-                    if (i > 0) {
-                        sql.append(",");
-                        values.append(",");
+            if (!dataColumns.isEmpty()) {
+                for (Map<String, Object> row : dto.getData()) {
+                    StringBuilder sql = new StringBuilder("INSERT INTO \"").append(tableName).append("\" (");
+                    StringBuilder params = new StringBuilder("VALUES (");
+                    for (int i = 0; i < dataColumns.size(); i++) {
+                        if (i > 0) {
+                            sql.append(",");
+                            params.append(",");
+                        }
+                        sql.append("\"").append(dataColumns.get(i)).append("\"");
+                        params.append(":v").append(i);
                     }
-                    sql.append("\"").append(dataColumns.get(i)).append("\"");
-                    Object value = row.get(dataColumns.get(i));
-                    if (value == null) {
-                        values.append("NULL");
-                    } else {
-                        values.append("'").append(value.toString().replace("'", "''")).append("'");
+                    sql.append(") ").append(params).append(")");
+                    Query q = entityManager.createNativeQuery(sql.toString());
+                    for (int i = 0; i < dataColumns.size(); i++) {
+                        Object value = row.get(dataColumns.get(i));
+                        q.setParameter("v" + i, value == null ? null : value.toString());
                     }
+                    q.executeUpdate();
                 }
-                sql.append(") ").append(values).append(")");
-                entityManager.createNativeQuery(sql.toString()).executeUpdate();
             }
         }
     }
