@@ -472,4 +472,150 @@ public class TableService {
     public boolean save(TableDao tableDao){
         return null != tableRepository.save(tableDao);
     }
+
+    /**
+     * 获取表的全量数据（不分页）
+     */
+    public List<Map<String, Object>> getTableDataFull(String tableName) {
+        List<String> columnNames = getTableMetadata(tableName);
+        StringBuilder sql = new StringBuilder("SELECT * FROM \"").append(tableName).append("\"");
+        Query query = entityManager.createNativeQuery(sql.toString());
+        List results = query.getResultList();
+
+        List<Map<String, Object>> tableData = new ArrayList<>();
+        if (results != null && results.size() > 0 && !(results.get(0) instanceof Object[])) {
+            for (Object row : results) {
+                Map<String, Object> rowData = new LinkedHashMap<>();
+                for (int i = 0; i < columnNames.size(); i++) {
+                    rowData.put(columnNames.get(i), row);
+                }
+                tableData.add(rowData);
+            }
+        } else if (results != null) {
+            for (Object[] row : (List<Object[]>) results) {
+                Map<String, Object> rowData = new LinkedHashMap<>();
+                for (int i = 0; i < columnNames.size(); i++) {
+                    rowData.put(columnNames.get(i), row[i]);
+                }
+                tableData.add(rowData);
+            }
+        }
+        return tableData;
+    }
+
+    /**
+     * 导出表结构和全量数据，返回导出包对象
+     */
+    public TableTransferPackageDTO exportTable(String tableName, String loginUserName) {
+        List<TableDao> tableDaoList = tableRepository.findByTableName(tableName);
+        if (tableDaoList == null || tableDaoList.isEmpty()) {
+            throw new RuntimeException("表格不存在：" + tableName);
+        }
+        TableDao tableDao = tableDaoList.get(0);
+
+        TableTransferPackageDTO dto = new TableTransferPackageDTO();
+        dto.setFormat("big_work_table_export_v1");
+        dto.setVersion(1);
+
+        TableTransferPackageDTO.Meta meta = new TableTransferPackageDTO.Meta();
+        meta.setExportedAt(dateFormat.format(new Date()));
+        meta.setExportedBy(loginUserName);
+        TableTransferPackageDTO.Source source = new TableTransferPackageDTO.Source();
+        source.setApp("big_work");
+        source.setDb("postgresql");
+        meta.setSource(source);
+        dto.setMeta(meta);
+
+        TableTransferPackageDTO.TableInfo tableInfo = new TableTransferPackageDTO.TableInfo();
+        tableInfo.setTableName(tableDao.getTableName());
+        tableInfo.setTableDesc(tableDao.getTableDesc());
+        dto.setTable(tableInfo);
+
+        List<TableTransferPackageDTO.Column> columns = new ArrayList<>();
+        for (TableColumnDao col : tableDao.getTableColumnList()) {
+            TableTransferPackageDTO.Column column = new TableTransferPackageDTO.Column();
+            column.setColumnName(col.getColumnName());
+            column.setColumnDesc(col.getColumnDesc());
+            column.setDisplayMultiplier(col.getDisplayMultiplier());
+            column.setControlType(col.getControlType());
+            column.setEnumValues(col.getEnumValues());
+            columns.add(column);
+        }
+        dto.setColumns(columns);
+
+        dto.setData(getTableDataFull(tableName));
+        return dto;
+    }
+
+    /**
+     * 导入表结构和全量数据
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void importTable(String jsonContent, String loginUserName) throws Exception {
+        TableTransferPackageDTO dto = objectMapper.readValue(jsonContent, TableTransferPackageDTO.class);
+
+        if (!"big_work_table_export_v1".equals(dto.getFormat())) {
+            throw new RuntimeException("文件格式错误：不是有效的导出文件！");
+        }
+        if (dto.getTable() == null || dto.getColumns() == null) {
+            throw new RuntimeException("文件内容不完整！");
+        }
+
+        String tableName = dto.getTable().getTableName();
+        List<TableDao> existingTables = tableRepository.findByTableName(tableName);
+        if (existingTables != null && !existingTables.isEmpty()) {
+            throw new RuntimeException("已存在同名表：" + tableName);
+        }
+
+        AddTableDTO addTableDTO = new AddTableDTO();
+        addTableDTO.setTableName(dto.getTable().getTableName());
+        addTableDTO.setTableDesc(dto.getTable().getTableDesc());
+
+        List<AddColumnDTO> columnDTOs = new ArrayList<>();
+        for (TableTransferPackageDTO.Column col : dto.getColumns()) {
+            if ("id".equals(col.getColumnName())) {
+                continue;
+            }
+            AddColumnDTO addColumnDTO = new AddColumnDTO();
+            addColumnDTO.setColumnName(col.getColumnName());
+            addColumnDTO.setColumnDesc(col.getColumnDesc());
+            addColumnDTO.setDisplayMultiplier(col.getDisplayMultiplier());
+            addColumnDTO.setControlType(col.getControlType());
+            addColumnDTO.setEnumValues(col.getEnumValues());
+            columnDTOs.add(addColumnDTO);
+        }
+        addTableDTO.setColumns(columnDTOs);
+
+        save(addTableDTO, loginUserName);
+
+        if (dto.getData() != null && !dto.getData().isEmpty()) {
+            List<String> dataColumns = new ArrayList<>();
+            for (AddColumnDTO col : columnDTOs) {
+                dataColumns.add(col.getColumnName());
+            }
+
+            for (Map<String, Object> row : dto.getData()) {
+                if (dataColumns.isEmpty()) {
+                    continue;
+                }
+                StringBuilder sql = new StringBuilder("INSERT INTO \"").append(tableName).append("\" (");
+                StringBuilder values = new StringBuilder("VALUES (");
+                for (int i = 0; i < dataColumns.size(); i++) {
+                    if (i > 0) {
+                        sql.append(",");
+                        values.append(",");
+                    }
+                    sql.append("\"").append(dataColumns.get(i)).append("\"");
+                    Object value = row.get(dataColumns.get(i));
+                    if (value == null) {
+                        values.append("NULL");
+                    } else {
+                        values.append("'").append(value.toString().replace("'", "''")).append("'");
+                    }
+                }
+                sql.append(") ").append(values).append(")");
+                entityManager.createNativeQuery(sql.toString()).executeUpdate();
+            }
+        }
+    }
 }
