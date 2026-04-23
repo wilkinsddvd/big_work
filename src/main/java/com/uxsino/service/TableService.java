@@ -388,14 +388,44 @@ public class TableService {
             @Override
             public void execute(Connection connection) throws SQLException {
                 DatabaseMetaData metaData = connection.getMetaData();
-                ResultSet columns = metaData.getColumns(null, null, tableName, null);
+                logger.debug("获取表元数据，表名：{}", tableName);
 
+                // PostgreSQL 将未加引号的标识符存储为小写，getColumns 需要精确匹配大小写。
+                // 依次尝试原始名称、小写、大写，以兼容不同数据库和命名风格。
+                String resolvedName = resolveTableName(metaData, tableName);
+                if (resolvedName == null) {
+                    logger.warn("未能通过 DatabaseMetaData 获取表 {} 的列信息", tableName);
+                    return;
+                }
+
+                ResultSet columns = metaData.getColumns(null, null, resolvedName, null);
                 while (columns.next()) {
                     columnNames.add(columns.getString("COLUMN_NAME"));
                 }
+                columns.close();
+                logger.debug("表 {} 共获取到 {} 个列", resolvedName, columnNames.size());
             }
         });
+
+        if (columnNames.isEmpty()) {
+            throw new RuntimeException("无法获取表 [" + tableName + "] 的列信息，请确认表名是否正确");
+        }
         return columnNames;
+    }
+
+    /**
+     * 尝试以原始名称、小写、大写顺序在数据库元数据中查找表名，返回匹配的实际名称；未找到返回 null。
+     */
+    private String resolveTableName(DatabaseMetaData metaData, String tableName) throws SQLException {
+        for (String candidate : new String[]{tableName, tableName.toLowerCase(), tableName.toUpperCase()}) {
+            ResultSet rs = metaData.getColumns(null, null, candidate, null);
+            boolean found = rs.next();
+            rs.close();
+            if (found) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     public boolean deleteData(String tableName, String recordId) {
